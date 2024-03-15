@@ -207,7 +207,7 @@ export default class Gpt3p5 extends Node {
 
 		else {
 			auth = this.options.edisonAiApiKey;
-			url = `http://localhost:5000/openai-standard-chat-completion/?endpoint=https://api.openai.com/v1/chat/completions`
+			url = `https://proxy.edison-ai.com/openai-standard-chat-completion/?endpoint=https://api.openai.com/v1/chat/completions`
 		}
 
 		this.log(auth);
