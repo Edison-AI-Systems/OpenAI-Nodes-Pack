@@ -19,8 +19,8 @@ export default class Gpt3p5 extends Node {
 	// Initialization
 	//--------------------------------------------------
 
-	static _version = 'gpt3p5node';
-	static _hotupdate = true;
+	//static _version = 'gpt3p5node';
+	//static _hotupdate = true;
 
 	static buttonStyles = {
 		background: 'rgba(128, 255, 128, 0.5)',
@@ -198,9 +198,22 @@ export default class Gpt3p5 extends Node {
 		// Do chat completion
 		//--------------------------------------------------
 
+		let url, auth;
+
+		if (this.settings.authorization) {
+			url = 'https://api.openai.com/v1/chat/completions'
+			auth = 'Bearer ' + this.settings.authorization;
+		}
+
+		else {
+			auth = this.options.edisonAiApiKey;
+			url = `http://localhost:5000/openai-standard-chat-completion/?endpoint=https://api.openai.com/v1/chat/completions`
+		}
+
+		this.log(auth);
+
 		const completion = new OpenAIChatCompletion({
-			url: 'https://api.openai.com/v1/chat/completions',
-			auth: 'Bearer ' + String(this.settings.authorization),
+			url, auth,
 			body: {
 				messages,
 				tools,
@@ -223,9 +236,16 @@ export default class Gpt3p5 extends Node {
 
 		// Log message, process tool calls, 
 		completion.onMessage((message) => {
-			//if (message.tool_calls) { this.processToolCalls(message.tool_calls); }
-			///this.log(message);
+			this.log(message);
 			this.outputs.get('msg').send(message);
+		});
+
+		// Handle halt / abort
+		const releaseListener = this.listen('abort', () => { completion?.abort?.() });
+		completion.onAbort(() => {
+			releaseListener();
+			this.inputs.open();
+			this.log('Completion aborted');
 		});
 
 		// When everything is done
@@ -242,6 +262,10 @@ export default class Gpt3p5 extends Node {
 				}
 			});
 
+			// Release listener and re-assign onAbort to nothing
+			releaseListener();
+			completion.onAbort = () => {};
+
 			this.setState('done');
 			this.inputs.open();
 		});
@@ -251,9 +275,6 @@ export default class Gpt3p5 extends Node {
 			completion.abort();
 			throw e;
 		});
-
-		const releaseListener = this.listen('abort', () => { completion?.abort?.() });
-		completion.onAbort(() => { releaseListener(); this.error(new Error('Completion aborted')); });
 
 		await completion.start();
 		this.inputs.clear();
@@ -288,8 +309,6 @@ export default class Gpt3p5 extends Node {
 	// Go through each output and collect all the tools at out disposal
 	getTools() {
 		//this.log(this.outputs.getParams());
-
-		this.log('Getting tools...');
 
 		const tools = [];
 
